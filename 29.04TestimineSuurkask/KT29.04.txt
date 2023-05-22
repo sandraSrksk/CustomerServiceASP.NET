@@ -1,0 +1,1095 @@
+Testimine 29.04
+
+ASP.NET Core veebirakenduse testimine, DbContext, teenuse klassid, Moq
+
+kodutoo:
+
+Teamsis CustomerDatabasis kaks kontrollerit:
+CustomersController ja Customers2Controller. Esimene kasutab Entity framework Core
+andmekonteksti klassi ja teine ICustomersService tyypi klassi (interface ja
+vastav klass on Services kaustas)
+
+1. Tutvu ASP>NET Core veebirakendusega ja nende testimisega
+2. CustomersControlleri jaoks kirjuta yhiktestid (testide projektis fail 
+   CustomersControllerTest) ja need testid kasutavad EF Core andmekonteksti
+3. Tutvuv6lsklasside raamistikuga Moq. Nt, kuidas see tootab.
+4. CustomersService Controller klass vii meetodi haaval yle CustomersService 
+   klassile (andmetega seotud kood l2heb CustomerService klassi, kuid sinna ei
+   l2he kontrolleriga seotud kood). Tulemusena peab CustomerServiceController 
+   kasutama ainult CustomerService meetode ja DemoContexti v6ib sellest klassist
+   eemaldada. Kui lisad CustomerService klassi uue meetodi, siis selle meetodi
+   definitsioon tuleb lisada ka ICustomerService interfacele.
+
+
+------------------------------------------------------------------------------
+   Controller kaustas:
+CustomersController.cs (Entity framework Core andmekonteksti klassi)
+ja
+CustomersServiceController.cs (ICustomersService tyypi klassi)
+   
+   Service kaustas:
+CustomersService.cs
+ICustomersService.cs
+
+
+
+Tee juurde ja j2rgi asju, mis gunnar n2itas ja lisa unitteste samasse kohta
+pean controllerist vaatama, mis returne on ja mille peale et neile teha unit teste
+et need annaks juurde
+controlleri j2rgi vaata, et k6igele oleks testid.
+kirjutasin CHat GPT nii:
+
+
+
+
+
+____________________________________________________________________________________
+-----------------------------------------------------------------------------------
+1.ASP>NET Core veebirakendusega ja nende testimisega
+-----------------------------------------------------------------------------------
+
+When testing ASP.NET Core web applications, consider different layers of application, 
+including controllers, services, data access, and UI. A combination of unit tests, 
+integration tests, and E2E tests provides comprehensive coverage and helps maintain 
+the quality of the application.
+
+* Unit tests are focused on testing individual components or units of code in 
+isolation. In ASP.NET Core, you can write unit tests for controllers, services, and 
+other classes using testing frameworks like xUnit, NUnit, or MSTest. 
+
+* Integration tests verify the interactions between various components of the 
+application. In ASP.NET Core, you can use the built-in testing framework to write 
+integration tests. The framework allows you to simulate HTTP requests and test your 
+application's middleware pipeline, routing, and database interactions. 
+
+*E2E tests validate the entire application from the user's perspective, covering 
+multiple layers and components. For ASP.NET Core web applications, you can use tools 
+like Selenium or Cypress
+
+*TDD is a development approach where you write tests before writing the actual code. 
+This practice can help you design more testable and maintainable code.
+ 
+-----------------------------------------------------------------------------------
+
+
+
+
+___________________________________________________________________________________
+-----------------------------------------------------------------------------------
+2. CustomersControlleri jaoks kirjuta yhiktestid (testide projektis fail 
+CustomersControllerTest), testid kasutavad EF Core andmekonteksti
+-------------------------------------------------------------------------------------
+
+
+Yhiktestid, mis ma juurde tegin:
+1.
+// Test for the Details action to return the correct customer when a valid ID is provided
+        [Fact]
+        public async Task Details_should_return_customer_when_id_exists()
+        {
+            // Arrange
+            var customerId = 1;
+            _context.Customer.Add(new Customer { Id = customerId, Name = "Maali Maasikas" });
+            _context.SaveChanges();
+
+            // Act
+            var result = await _controller.Details(customerId) as ViewResult;
+
+            // Assert
+            Assert.NotNull(result);
+            var model = result.Model as Customer;
+            Assert.NotNull(model);
+            Assert.Equal(customerId, model.Id);
+        }
+2.
+        // test that the Details action returns "Not Found" result when the customer ID does not exist
+        [Fact]
+        public async Task Details_should_return_notfound_when_customer_not_found()
+        {
+            // Arrange
+            var nonExistingId = 999;
+
+            // Act
+            var result = await _controller.Details(nonExistingId) as NotFoundResult;
+
+            // Assert
+            Assert.NotNull(result);
+        }
+3.
+        //  test if Create action successfully saves a new customer to the database.
+        [Fact]
+        public async Task Create_should_save_new_customer()
+        {
+            // Arrange
+            var customer = new Customer { Name = "John Doe", Email = "john@example.com", Address = "123 Main St", Phone = "555-1234" };
+
+            // Act
+            var result = await _controller.Create(customer) as RedirectToActionResult;
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal("Index", result.ActionName);
+
+            var savedCustomer = _context.Customer.FirstOrDefault(c => c.Name == "John Doe");
+            Assert.NotNull(savedCustomer);
+            // Additional assertions for other properties
+            Assert.Equal(customer.Email, savedCustomer.Email);
+            Assert.Equal(customer.Address, savedCustomer.Address);
+            Assert.Equal(customer.Phone, savedCustomer.Phone);
+        }
+4. (Ei t00ta, seega asendame. N6udis juba controlleris muudatust)
+        // Test to see if Edit action updates an existing customer in database
+        [Fact]
+        public async Task Edit_should_update_existing_customer()
+        {
+            // Arrange
+            var customerId = 1;
+            var existingCustomer = new Customer { Id = customerId, Name = "Maali Maasikas", Email = "maali@example.com" };
+            _context.Customer.Add(existingCustomer);
+            _context.SaveChanges();
+
+            var updatedCustomer = new Customer { Id = customerId, Name = "Updated Name", Email = "updated@example.com" };
+
+            // Act
+            var result = await _controller.Edit(customerId, updatedCustomer) as RedirectToActionResult;
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal("Index", result.ActionName);
+
+            var modifiedCustomer = _context.Customer.FirstOrDefault(c => c.Id == customerId);
+            Assert.NotNull(modifiedCustomer);
+            Assert.Equal(updatedCustomer.Name, modifiedCustomer.Name);
+            Assert.Equal(updatedCustomer.Email, modifiedCustomer.Email);
+        }
+
+4 // Asendus
+// UploadFile_should_throw_exception_when_file_is_null: This test checks if the UploadFile action throws an ArgumentNullException when the file parameter is null.
+
+
+    public async Task UploadFile_should_throw_exception_when_file_is_null()
+    {
+        // Arrange
+
+        // Act and Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(() => _controller.UploadFile(null));
+    }
+
+
+
+5.
+        // Test if the DeleteConfirmed action correctly deletes existing customer
+        [Fact]
+        public async Task DeleteConfirmed_should_delete_existing_customer()
+        {
+            // Arrange
+            var customerId = 1;
+            var existingCustomer = new Customer { Id = customerId, Name = "Maali Maasikas" };
+            _context.Customer.Add(existingCustomer);
+            _context.SaveChanges();
+
+            // Act
+            var result = await _controller.DeleteConfirmed(customerId) as RedirectToActionResult;
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal("Index", result.ActionName);
+
+            var deletedCustomer = _context.Customer.FirstOrDefault(c => c.Id == customerId);
+            Assert.Null(deletedCustomer);
+        }
+6.  (Ei t00ta, directory t6ttu ilmselt)
+        // Testing if the UploadFile action saves the uploaded file correctly
+        [Fact]
+        public async Task UploadFile_should_save_uploaded_file()
+        {
+            // Arrange
+            var fileMock = new Mock<IFormFile>();
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes("Test file contents"));
+            fileMock.Setup(x => x.OpenReadStream()).Returns(stream);
+            fileMock.Setup(x => x.FileName).Returns("test.txt");
+
+            // Act
+            var result = await _controller.UploadFile(fileMock.Object) as RedirectToActionResult;
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal("Index", result.ActionName);
+
+            // Additional assertions for file saving logic
+            var savedFilePath = "c:\\temp\\file.txt";
+            Assert.True(File.Exists(savedFilePath));
+
+            using (var fileStream = new FileStream(savedFilePath, FileMode.Open))
+            using (var reader = new StreamReader(fileStream))
+            {
+                var fileContents = reader.ReadToEnd();
+                Assert.Equal("Test file contents", fileContents);
+            }
+        }
+
+ja uued kolm:
+
+6.
+// Test that Create action returns the same view when the model state is invalid
+        [Fact]
+        public async Task Create_should_return_view_when_model_state_invalid()
+        {
+            // Arrange
+            var invalidCustomer = new Customer();
+            _controller.ModelState.AddModelError("Name", "Name is required");
+
+            // Act
+            var result = await _controller.Create(invalidCustomer) as ViewResult;
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(invalidCustomer, result.Model);
+            Assert.True(result.ViewName == null || result.ViewName == "Create");
+        }
+7.
+        // Test that the Delete action returns a "Not Found" result when the ID parameter is null.
+        [Fact]
+        public async Task Delete_should_return_notfound_when_id_is_null()
+        {
+            // Arrange
+
+            // Act
+            var result = await _controller.Delete(null) as NotFoundResult;
+
+            // Assert
+            Assert.NotNull(result);
+        }
+8.
+        // Test if the DeleteConfirmed action returns a redirect to the index action after deleting a customer
+        [Fact]
+        public async Task DeleteConfirmed_should_return_redirect_to_index()
+        {
+            // Arrange
+            var existingCustomer = new Customer { Id = 1, Name = "John Doe" };
+            _context.Customer.Add(existingCustomer);
+            _context.SaveChanges();
+
+            // Act
+            var result = await _controller.DeleteConfirmed(existingCustomer.Id) as RedirectToActionResult;
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal("Index", result.ActionName);
+        }
+_____________________________________________________________________________________
+-------------------------------------------------------------------------------------
+3. Tutvuv6lsklasside raamistikuga Moq. Nt, kuidas see tootab.
+------------------------------------------------------------------------------------
+lisa moq ja siis hakkad liikuma EF koodilt teenuseklassi peale
+liigutades koodi teenuseklassi, mis puudutab customersservicecontrollerit
+testid kirjutan esimesele, millel on kyljes var alguses
+
+test no2 Gunnari tehtud SustomersControllerTests.cs
+                [Fact]
+		public async Task Details_should_return_notfound_when_id_is_null()
+		{
+			// Arrange
+
+			// Act
+			var result = await _controller.Details(null) as NotFoundResult;
+
+			// Assert
+			Assert.NotNull(result);
+		}
+
+_______________________________________________________________________________________
+------------------------------------------------------------------------------------
+4. CustomersService Controller klass vii meetodi haaval yle CustomersService klassile
+(andmetega seotud kood l2heb CustomerService klassi, kuid sinna ei l2he kontrolleriga 
+seotud kood). Tulemusena peab CustomerServiceController kasutama ainult 
+CustomerService meetode ja DemoContexti v6ib sellest klassist eemaldada. Kui lisad 
+CustomerService klassi uue meetodi, siis selle meetodi definitsioon tuleb lisada 
+ka ICustomerService interfacele.
+-------------------------------------------------------------------------------------
+
+Here is my CustomerService Controller class:
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using WebApplication4.Models;
+using WebApplication4.Services;
+
+namespace WebApplication4.Controllers
+{
+	public class CustomersServiceController : Controller
+	{
+		private readonly DemoContext _context;
+		private readonly ICustomerService _customerService;
+
+
+        public CustomersServiceController(DemoContext context, ICustomerService customerService)
+		{
+			_context = context;
+			_customerService = customerService;
+		}
+
+		// GET: Customers
+		public async Task<IActionResult> Index()
+		{
+			return View(await _context.Customer.ToListAsync());
+		}
+
+		// GET: Customers/Details/5
+		public async Task<IActionResult> Details(int? id)
+		{
+			if (id == null)
+			{
+				return NotFound();
+			}
+
+			var customer = await _customerService.GetById(id.Value);
+			if (customer == null)
+			{
+				return NotFound();
+			}
+
+			return View(customer);
+		}
+
+		// GET: Customers/Create
+		public IActionResult Create()
+		{
+			return View();
+		}
+
+		// POST: Customers/Create
+		// To protect from overposting attacks, enable the specific properties you want to bind to.
+		// For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+		[HttpPost]
+		[ValidateAntiForgeryToken]
+		public async Task<IActionResult> Create([Bind("Id,Name,Email,Address,Phone")] Customer customer)
+		{
+			if (ModelState.IsValid)
+			{
+				_context.Add(customer);
+				await _context.SaveChangesAsync();
+				return RedirectToAction(nameof(Index));
+			}
+			return View(customer);
+		}
+
+		// GET: Customers/Edit/5
+		public async Task<IActionResult> Edit(int? id)
+		{
+			if (id == null || _context.Customer == null)
+			{
+				return NotFound();
+			}
+
+			var customer = await _context.Customer.FindAsync(id);
+			if (customer == null)
+			{
+				return NotFound();
+			}
+			return View(customer);
+		}
+
+		// POST: Customers/Edit/5
+		// To protect from overposting attacks, enable the specific properties you want to bind to.
+		// For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+		[HttpPost]
+		[ValidateAntiForgeryToken]
+		public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Email,Address,Phone")] Customer customer)
+		{
+			if (id != customer.Id)
+			{
+				return NotFound();
+			}
+
+			if (ModelState.IsValid)
+			{
+				try
+				{
+					_context.Update(customer);
+					await _context.SaveChangesAsync();
+				}
+				catch (DbUpdateConcurrencyException)
+				{
+					if (!CustomerExists(customer.Id))
+					{
+						return NotFound();
+					}
+					else
+					{
+						throw;
+					}
+				}
+				return RedirectToAction(nameof(Index));
+			}
+			return View(customer);
+		}
+
+		// GET: Customers/Delete/5
+		public async Task<IActionResult> Delete(int? id)
+		{
+			if (id == null || _context.Customer == null)
+			{
+				return NotFound();
+			}
+
+			var customer = await _context.Customer
+				.FirstOrDefaultAsync(m => m.Id == id);
+			if (customer == null)
+			{
+				return NotFound();
+			}
+
+			return View(customer);
+		}
+
+		// POST: Customers/Delete/5
+		[HttpPost, ActionName("Delete")]
+		[ValidateAntiForgeryToken]
+		public async Task<IActionResult> DeleteConfirmed(int id)
+		{
+			if (_context.Customer == null)
+			{
+				return Problem("Entity set 'DemoContext.Customer'  is null.");
+			}
+			var customer = await _context.Customer.FindAsync(id);
+			if (customer != null)
+			{
+				_context.Customer.Remove(customer);
+			}
+
+			await _context.SaveChangesAsync();
+			return RedirectToAction(nameof(Index));
+		}
+
+		private bool CustomerExists(int id)
+		{
+			return _context.Customer.Any(e => e.Id == id);
+		}
+
+		[HttpGet]
+		public async Task<IActionResult> UploadFile()
+		{
+			return View();
+		}
+
+		[HttpPost]
+		public async Task<IActionResult> UploadFile(IFormFile file)
+		{
+			// Kontrolli faili kohta
+			if (file == null)
+			{
+				throw new ArgumentNullException(nameof(file));
+			}
+			// Veel mingeid kontrolle
+
+			using (var fileStream = new FileStream("c:\\temp\\file.txt", FileMode.OpenOrCreate))
+			using (var uploadedStream = file.OpenReadStream())
+			{
+				uploadedStream.Seek(0, SeekOrigin.Begin);
+				uploadedStream.CopyTo(fileStream);
+			}
+
+			return RedirectToAction("Index");
+		}
+	}
+}                                                                                                                                                                                   
+   and here is my CustomerService class:                                                                                                 
+  using Microsoft.EntityFrameworkCore;
+using WebApplication4.Models;
+
+namespace WebApplication4.Services
+{
+	public class CustomerService : ICustomerService
+	{
+		private readonly DemoContext _context;
+
+		public CustomerService(DemoContext context)
+		{
+			_context = context;
+		}
+
+		public async Task<Customer> GetById(int id)
+		{
+			return await _context.Customer
+								 .Where(c => c.Id == id)
+								 .FirstOrDefaultAsync();
+		}
+	}
+}
+what i need to do is to Transfer the CustomersService Controller class to the CustomersService class method by method
+(code related to the data goes to the CustomerService class, but not to the controller
+associated code). As a result, CustomerServiceController only needs to use
+CustomerService methods and DemoContext can be removed from this class. If adding 
+ a new method for of the CustomerService class, the definition of this method must be added
+also to the ICustomerService interface.
+ChatGPT
+To transfer the methods from the CustomersServiceController class to the CustomerService class, you can follow these steps:
+
+Step 1: Remove the DemoContext dependency from the CustomersServiceController class since it will be handled by the CustomerService class.
+
+Step 2: Define the methods in the ICustomerService interface. Add any new methods to the interface as well.
+
+Here's an updated version of the ICustomerService interface:
+
+csharp
+Copy code
+public interface ICustomerService
+{
+    Task<List<Customer>> GetAllCustomers();
+    Task<Customer> GetCustomerById(int id);
+    Task CreateCustomer(Customer customer);
+    Task UpdateCustomer(Customer customer);
+    Task DeleteCustomer(int id);
+    Task UploadFile(IFormFile file);
+}
+Step 3: Update the CustomerService class to implement the ICustomerService interface and remove the dependency on DemoContext.
+
+Here's an updated version of the CustomerService class:
+
+public class CustomerService : ICustomerService
+{
+    private readonly DbContextOptions<DemoContext> _dbContextOptions;
+
+    public CustomerService(DbContextOptions<DemoContext> dbContextOptions)
+    {
+        _dbContextOptions = dbContextOptions;
+    }
+
+    public async Task<List<Customer>> GetAllCustomers()
+    {
+        using (var context = new DemoContext(_dbContextOptions))
+        {
+            return await context.Customer.ToListAsync();
+        }
+    }
+
+    public async Task<Customer> GetCustomerById(int id)
+    {
+        using (var context = new DemoContext(_dbContextOptions))
+        {
+            return await context.Customer.FirstOrDefaultAsync(c => c.Id == id);
+        }
+    }
+
+    public async Task CreateCustomer(Customer customer)
+    {
+        using (var context = new DemoContext(_dbContextOptions))
+        {
+            context.Add(customer);
+            await context.SaveChangesAsync();
+        }
+    }
+
+    public async Task UpdateCustomer(Customer customer)
+    {
+        using (var context = new DemoContext(_dbContextOptions))
+        {
+            context.Update(customer);
+            await context.SaveChangesAsync();
+        }
+    }
+
+    public async Task DeleteCustomer(int id)
+    {
+        using (var context = new DemoContext(_dbContextOptions))
+        {
+            var customer = await context.Customer.FindAsync(id);
+            if (customer != null)
+            {
+                context.Customer.Remove(customer);
+                await context.SaveChangesAsync();
+            }
+        }
+    }
+
+    public async Task UploadFile(IFormFile file)
+    {
+        // Kontrolli faili kohta
+        if (file == null)
+        {
+            throw new ArgumentNullException(nameof(file));
+        }
+        // Veel mingeid kontrolle
+
+        using (var fileStream = new FileStream("c:\\temp\\file.txt", FileMode.OpenOrCreate))
+        using (var uploadedStream = file.OpenReadStream())
+        {
+            uploadedStream.Seek(0, SeekOrigin.Begin);
+            uploadedStream.CopyTo(fileStream);
+        }
+    }
+}
+
+
+
+Step 4: Update the CustomersServiceController class to use the CustomerService methods.
+
+Here's an updated version of the CustomersServiceController class:
+
+
+public class CustomersServiceController : Controller
+{
+    private readonly ICustomerService _customerService;
+
+    public CustomersServiceController(ICustomerService customerService)
+    {
+        _customerService = customerService;
+    }
+
+    // GET: Customers
+    public async Task<IActionResult> Index()
+    {
+        var customers = await _customerService.GetAllCustomers();
+        return View(customers);
+    }
+
+    // GET: Customers/Details/5
+    public async Task<IActionResult> Details(int? id)
+    {
+        if (id == null)
+        {
+            return NotFound();
+        }
+
+        var customer = await _customerService.GetCustomerById(id.Value);
+        if (customer == null)
+        {
+            return NotFound();
+        }
+
+        return View(customer);
+    }
+
+    // GET: Customers/Create
+    public IActionResult Create()
+    {
+        return View();
+    }
+
+    // POST: Customers/Create
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create([Bind("Id,Name,Email,Address,Phone")] Customer customer)
+    {
+        if (ModelState.IsValid)
+        {
+            await _customerService.CreateCustomer(customer);
+            return RedirectToAction(nameof(Index));
+        }
+        return View(customer);
+    }
+
+    // GET: Customers/Edit/5
+    public async Task<IActionResult> Edit(int? id)
+    {
+        if (id == null)
+        {
+            return NotFound();
+        }
+
+        var customer = await _customerService.GetCustomerById(id.Value);
+        if (customer == null)
+        {
+            return NotFound();
+        }
+        return View(customer);
+    }
+
+    // POST: Customers/Edit/5
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Email,Address,Phone")] Customer customer)
+    {
+        if (id != customer.Id)
+        {
+            return NotFound();
+        }
+
+        if (ModelState.IsValid)
+        {
+            await _customerService.UpdateCustomer(customer);
+            return RedirectToAction(nameof(Index));
+        }
+        return View(customer);
+    }
+
+    // GET: Customers/Delete/5
+    public async Task<IActionResult> Delete(int? id)
+    {
+        if (id == null)
+        {
+            return NotFound();
+        }
+
+        var customer = await _customerService.GetCustomerById(id.Value);
+        if (customer == null)
+        {
+            return NotFound();
+        }
+
+        return View(customer);
+    }
+
+    // POST: Customers/Delete/5
+    [HttpPost, ActionName("Delete")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteConfirmed(int id)
+    {
+        await _customerService.DeleteCustomer(id);
+        return RedirectToAction(nameof(Index));
+    }
+
+    // GET: Customers/UploadFile
+    [HttpGet]
+    public IActionResult UploadFile()
+    {
+        return View();
+    }
+
+    // POST: Customers/UploadFile
+    [HttpPost]
+    public async Task<IActionResult> UploadFile(IFormFile file)
+    {
+        // Kontrolli faili kohta
+        if (file == null)
+        {
+            throw new ArgumentNullException(nameof(file));
+        }
+        // Veel mingeid kontrolle
+
+        await _customerService.UploadFile(file);
+
+        return RedirectToAction(nameof(Index));
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Algne______________________________________________________________________________
+_____________________________________________________________________________________-
+
+Here is my CustomersController.cs : using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
+using WebApplication4.Models;
+using WebApplication4.Services;
+
+namespace WebApplication4.Controllers
+{
+    public class CustomersController : Controller
+    {
+        private readonly DemoContext _context;
+
+        public CustomersController(DemoContext context)
+        {
+            _context = context;
+        }
+
+        // GET: Customers
+        public async Task<IActionResult> Index()
+        {
+              return View(await _context.Customer.ToListAsync());
+        }
+
+        // GET: Customers/Details/5
+        public async Task<IActionResult> Details(int? id)
+        {
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var customer = await _context.Customer.FirstOrDefaultAsync(c => c.Id == id.Value);
+            if (customer == null)
+            {
+                return NotFound();
+            }
+
+            return View(customer);
+        }
+
+        // GET: Customers/Create
+        public IActionResult Create()
+        {
+            return View();
+        }
+
+        // POST: Customers/Create
+        // To protect from overposting attacks, enable the specific properties you want to bind to.
+        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create([Bind("Id,Name,Email,Address,Phone")] Customer customer)
+        {
+            if (ModelState.IsValid)
+            {
+                _context.Add(customer);
+                await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(Index));
+            }
+            return View(customer);
+        }
+
+        // GET: Customers/Edit/5
+        public async Task<IActionResult> Edit(int? id)
+        {
+            if (id == null || _context.Customer == null)
+            {
+                return NotFound();
+            }
+
+            var customer = await _context.Customer.FindAsync(id);
+            if (customer == null)
+            {
+                return NotFound();
+            }
+            return View(customer);
+        }
+
+        // POST: Customers/Edit/5
+        // To protect from overposting attacks, enable the specific properties you want to bind to.
+        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Email,Address,Phone")] Customer customer)
+        {
+            if (id != customer.Id)
+            {
+                return NotFound();
+            }
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    _context.Update(customer);
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    if (!CustomerExists(customer.Id))
+                    {
+                        return NotFound();
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+                return RedirectToAction(nameof(Index));
+            }
+            return View(customer);
+        }
+
+        // GET: Customers/Delete/5
+        public async Task<IActionResult> Delete(int? id)
+        {
+            if (id == null || _context.Customer == null)
+            {
+                return NotFound();
+            }
+
+            var customer = await _context.Customer
+                .FirstOrDefaultAsync(m => m.Id == id);
+            if (customer == null)
+            {
+                return NotFound();
+            }
+
+            return View(customer);
+        }
+
+        // POST: Customers/Delete/5
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(int id)
+        {
+            if (_context.Customer == null)
+            {
+                return Problem("Entity set 'DemoContext.Customer'  is null.");
+            }
+            var customer = await _context.Customer.FindAsync(id);
+            if (customer != null)
+            {
+                _context.Customer.Remove(customer);
+            }
+            
+            await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(Index));
+        }
+
+        private bool CustomerExists(int id)
+        {
+          return _context.Customer.Any(e => e.Id == id);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> UploadFile()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UploadFile(IFormFile file)
+        {
+            // Kontrolli faili kohta
+            if(file == null)
+            {
+                throw new ArgumentNullException(nameof(file));
+            }
+            // Veel mingeid kontrolle
+
+            using(var fileStream = new FileStream("c:\\temp\\file.txt", FileMode.OpenOrCreate))
+            using(var uploadedStream = file.OpenReadStream())
+            {
+                uploadedStream.Seek(0, SeekOrigin.Begin);
+                uploadedStream.CopyTo(fileStream);
+            }
+
+            return RedirectToAction("Index");
+        }
+    }
+}
+
+What other unit tests i can add here : (using System.Security.Cryptography.Xml;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Moq;
+using WebApplication4.Controllers;
+using WebApplication4.Models;
+using WebApplication4.Services;
+
+namespace WebApplication4.UnitTest
+{
+	public class CustomersControllerTests
+	{
+		private readonly DemoContext _context;
+		private readonly CustomersController _controller;
+
+		public CustomersControllerTests() 
+		{ 
+			var options = new DbContextOptionsBuilder<DemoContext>()
+								.UseInMemoryDatabase(Guid.NewGuid().ToString())
+								.Options;
+			_context = new DemoContext(options);
+
+			_controller = new CustomersController(_context);
+		}
+
+		[Fact]
+		public async Task Index_should_return_list_of_customers()
+		{
+			// Arrange
+			_context.Customer.Add(new Customer { Id = 1, Name = "Maali Maasikas" });
+			_context.SaveChanges();
+
+			// Act
+			var result = await _controller.Index() as ViewResult;
+
+			// Assert
+			Assert.NotNull(result);
+			var isCorrectView = result.ViewName == null ||
+								result.ViewName == "Index";
+			Assert.True(isCorrectView);
+			var model = result.Model as IEnumerable<Customer>;
+			Assert.NotNull(model);
+			Assert.Single(model);
+		}
+
+		[Fact]
+		public async Task Details_should_return_notfound_when_id_is_null()
+		{
+			// Arrange
+
+			// Act
+			var result = await _controller.Details(null) as NotFoundResult;
+
+			// Assert
+			Assert.NotNull(result);
+		}
+
+    }
+} 
+
+
+
+
+vahepealne>>>>
+
+		[Fact]
+		public async Task Details_should_return_notfound_when_customer_is_not_found()
+		{
+			// Arrange 
+            var customer = (Customer)null;
+            _customerServiceMock.Setup( x => x.GetByID(1))
+                                .ReturnsAsync(customer);
+
+			// Act
+			var result = await _controller.Details(1) as NotFoundResult;
+
+			// Assert
+			Assert.NotNull(result);
+		}
+
+
+
+_____________________________________________________________________________________
+-------------------------------------------------------------------------------------
+ICustomerServive algne
+-------------------------------------------------------------------------------------
+
+using WebApplication4.Models;
+
+namespace WebApplication4.Services
+{
+	public interface ICustomerService
+	{
+		Task<Customer> GetById(int id);
+	}
+}
+
+-----------------------------------------------------------------------------------
+
+Mis testid mul on ja mida v6iks, peaks veel lisama:
+
+Index_should_return_list_of_customers()
+Details_should_return_notfound_when_id_is_null()
+Details_should_return_customer_when_id_exists()
+Details_should_return_notfound_when_customer_not_found()
+Create_should_save_new_customer()
+UploadFile_should_throw_exception_when_file_is_null()
+DeleteConfirmed_should_delete_existing_customer()
+Create_should_return_view_when_model_state_invalid()
+Delete_should_return_notfound_when_id_is_null()
+DeleteConfirmed_should_return_redirect_to_index()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
